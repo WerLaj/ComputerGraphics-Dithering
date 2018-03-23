@@ -28,9 +28,13 @@ namespace ComputerGraphicsDithering
         private TextBox colorsNumberTextbox;
         private int colorsNumber = 5;
 
+        private TextBox popularityColorsNumberTextbox;
+        private int popularityColorsNumber = 5;
+
         private Label greyLevelLabel;
         private Label ditherMatrixSizeLabel;
         private Label colorsNumberLabel;
+        private Label popularityColorsNumberLabel;
 
         //private Button buttonThreshold;
         //private TrackBar thresholdTrackbar;
@@ -39,6 +43,7 @@ namespace ComputerGraphicsDithering
         private Button buttonAverageDithering;
         private Button buttonOrderedDitheing;
         private Button buttonkMeansQuantization;
+        private Button buttonPopularityQuantization;
 
         public Form1()
         {
@@ -77,6 +82,13 @@ namespace ComputerGraphicsDithering
             buttonkMeansQuantization.Width = 180;
             buttonkMeansQuantization.Click += new EventHandler(this.kMeansQuantizationOnClick);
 
+            buttonPopularityQuantization = new Button();
+            buttonPopularityQuantization.Text = "Popularity quantization";
+            buttonPopularityQuantization.Left = 3;
+            buttonPopularityQuantization.Top = 3 + 6 * buttonLoad.Height;
+            buttonPopularityQuantization.Width = 180;
+            buttonPopularityQuantization.Click += new EventHandler(this.popularityQuantizationOnClick);
+
             //thresholdTrackbar = new TrackBar();
             //thresholdTrackbar.Left = 3 + buttonLoad.Width;
             //thresholdTrackbar.Top = 3 + 2 * buttonLoad.Height;
@@ -108,6 +120,12 @@ namespace ComputerGraphicsDithering
             colorsNumberTextbox.Top = 3 + 5 * buttonLoad.Height;
             colorsNumberTextbox.TextChanged += new System.EventHandler(this.colorsNumberChanged);
 
+            popularityColorsNumberTextbox = new TextBox();
+            popularityColorsNumberTextbox.Text = "5";
+            popularityColorsNumberTextbox.Left = 3 + 2 * buttonLoad.Width;
+            popularityColorsNumberTextbox.Top = 3 + 6 * buttonLoad.Height;
+            popularityColorsNumberTextbox.TextChanged += new System.EventHandler(this.popularityColorsNumberChanged);
+
             greyLevelLabel = new Label();
             greyLevelLabel.Text = "Grey level";
             greyLevelLabel.Top = 3 + 3 * buttonLoad.Height;
@@ -122,6 +140,11 @@ namespace ComputerGraphicsDithering
             colorsNumberLabel.Text = "Colors number";
             colorsNumberLabel.Top = 3 + 5 * buttonLoad.Height;
             colorsNumberLabel.Left = 53 + buttonLoad.Width;
+
+            popularityColorsNumberLabel = new Label();
+            popularityColorsNumberLabel.Text = "Popularity colors number";
+            popularityColorsNumberLabel.Top = 3 + 6 * buttonLoad.Height;
+            popularityColorsNumberLabel.Left = 53 + buttonLoad.Width;
 
             originalImage = new PictureBox();
             originalImage.BorderStyle = BorderStyle.Fixed3D;
@@ -145,6 +168,7 @@ namespace ComputerGraphicsDithering
             this.Controls.Add(greyLevelComboBox);
             this.Controls.Add(ditherMatrixSizeComboBox);
             this.Controls.Add(colorsNumberTextbox);
+            this.Controls.Add(popularityColorsNumberTextbox);
             //this.Controls.Add(buttonThreshold);
             this.Controls.Add(buttonAverageDithering);
             this.Controls.Add(buttonOrderedDitheing);
@@ -152,8 +176,87 @@ namespace ComputerGraphicsDithering
             this.Controls.Add(greyLevelLabel);
             this.Controls.Add(ditherMatrixSizeLabel);
             this.Controls.Add(colorsNumberLabel);
+            this.Controls.Add(popularityColorsNumberLabel);
+            this.Controls.Add(buttonPopularityQuantization);
 
             InitializeComponent();
+        }
+
+        private void popularityColorsNumberChanged(object sender, EventArgs e)
+        {
+            popularityColorsNumber = Int32.Parse(popularityColorsNumberTextbox.Text.ToString());
+        }
+
+        private void popularityQuantizationOnClick(object sender, EventArgs e)
+        {
+            filterBitmap = popularityQuantization(originalBitmap, popularityColorsNumber);
+            filterImage.Image = filterBitmap;
+        }
+
+        public Bitmap popularityQuantization(Bitmap orgBitmap, int colorNum)
+        {
+            Bitmap tempBitmap = (Bitmap)orgBitmap;
+            Bitmap bitmap = (Bitmap)tempBitmap.Clone();
+
+            double minDist = 442;
+            int closestColor = 0;
+            Color c;
+            Color[] mostPopularColors = new Color[colorNum];
+            Dictionary<Color, int> colorsDictionary = new Dictionary<Color, int>();
+
+            for (int i = 0; i < bitmap.Width; i++)
+            {
+                for (int j = 0; j < bitmap.Height; j++)
+                {
+                    c = bitmap.GetPixel(i, j);
+
+                    if (colorsDictionary.ContainsKey(c))
+                    {
+                        colorsDictionary[c]++;
+                    }
+                    else
+                    {
+                        colorsDictionary.Add(c, 1);
+                    }                                  
+                }
+            }
+
+            List<KeyValuePair<Color, int>> colorsList = colorsDictionary.ToList();
+
+            colorsList.Sort(
+                delegate (KeyValuePair<Color, int> pair1, KeyValuePair<Color, int> pair2)
+                {
+                    return pair1.Value.CompareTo(pair2.Value);
+                }
+            );
+
+            for (int i = 0; i < colorNum; i++)
+            {
+                mostPopularColors[i] = colorsList.ElementAt(i).Key;
+            }
+
+            for (int i = 0; i < bitmap.Width; i++)
+            {
+                for (int j = 0; j < bitmap.Height; j++)
+                {
+                    c = bitmap.GetPixel(i, j);
+
+                    for (int k = 0; k < colorNum; k++)
+                    {
+                        double dist = getEuclideanDistance(c, mostPopularColors[k]);
+                        if (dist < minDist)
+                        {
+                            closestColor = k;
+                            minDist = dist;
+                        }
+                    }
+                    minDist = 442;
+
+                    bitmap.SetPixel(i, j, mostPopularColors[closestColor]);
+                }
+            }
+
+            return (Bitmap)bitmap.Clone();
         }
 
         private void colorsNumberChanged(object sender, EventArgs e)
